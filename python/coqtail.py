@@ -159,7 +159,7 @@ class Coqtail:
         send_queue - A queue of the sentences to send to Rocq. Each item
                      contains the "start" and "end" (inclusive, including the
                      dot) position of the sentence.
-        error_at - The position of the last error
+        error_at - The position of the last error and the error message.
         omitted_proofs - The positions of the starts and ends of the proofs
                          that have been skipped by `to_line()`.
         info_msg - Lines of text to display in the info panel
@@ -172,7 +172,7 @@ class Coqtail:
         self.buffer: List[bytes] = []
         self.endpoints: List[Tuple[int, int]] = []
         self.send_queue: Deque[Mapping[str, Tuple[int, int]]] = deque()
-        self.error_at: Optional[Tuple[Tuple[int, int], Tuple[int, int]]] = None
+        self.error_at: Optional[Tuple[Tuple[int, int], Tuple[int, int], str]] = None
         self.omitted_proofs: List[ProofRange] = []
         self.info_msg: List[str] = []
         self.goal_msg: List[str] = []
@@ -270,7 +270,7 @@ class Coqtail:
         if unmatched is not None and failed_at is None:
             # Only report unmatched if no other errors occurred first
             self.set_info(str(unmatched), reset=False)
-            self.error_at = unmatched.range
+            self.error_at = (unmatched.range[0], unmatched.range[1], str(unmatched))
             self.refresh(goals=False, opts=opts)
 
         return err
@@ -342,7 +342,7 @@ class Coqtail:
         if unmatched is not None and failed_at is None:
             # Only report unmatched if no other errors occurred first
             self.set_info(str(unmatched), reset=False)
-            self.error_at = unmatched.range
+            self.error_at = (unmatched.range[0], unmatched.range[1], str(unmatched))
             self.refresh(goals=False, opts=opts)
 
         return err
@@ -365,7 +365,7 @@ class Coqtail:
         self.print_stderr(stderr)
         self.refresh(goals=False, opts=opts)
 
-    def endpoint(self, opts: VimOptions) -> Tuple[int, int]:
+    def endpoint(self) -> Tuple[int, int]:
         """Return the end of the Rocq checked section."""
         # pylint: disable=unused-argument
         # opts is always passed by handle().
@@ -459,12 +459,12 @@ class Coqtail:
                 assert err_loc is not None
                 loc_s, loc_e = err_loc
                 if loc_s == loc_e == -1:
-                    self.error_at = (to_send["start"], to_send["stop"])
+                    self.error_at = (to_send["start"], to_send["stop"], msg)
                 else:
                     line, col = to_send["start"]
                     sline, scol = _pos_from_offset(col, message, loc_s)
                     eline, ecol = _pos_from_offset(col, message, loc_e)
-                    self.error_at = ((line + sline, scol), (line + eline, ecol))
+                    self.error_at = ((line + sline, scol), (line + eline, ecol), msg)
 
         # Clear info if no messages and at least one message was sent
         if no_msgs and not empty:
@@ -756,7 +756,7 @@ class Coqtail:
             matches["sent"] = matcher[sline : eline + 1, scol:ecol]
 
         if self.error_at is not None:
-            (sline, scol), (eline, ecol) = self.error_at
+            (sline, scol), (eline, ecol), _ = self.error_at
             matches["error"] = matcher[sline : eline + 1, scol:ecol]
 
         if self.omitted_proofs != []:
@@ -1031,6 +1031,8 @@ class CoqtailHandler(StreamRequestHandler):
                 self.coq.highlights,
                 self.coq.panels(goals),
                 scroll,
+                self.coq.error_at,
+                self.coq.endpoint(),
             )
 
     def interrupt(self) -> None:

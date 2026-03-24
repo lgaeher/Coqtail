@@ -317,7 +317,7 @@ function! s:replace(panel, txt, richpp, scroll) abort
 endfunction
 
 " Refresh the highlighting and auxiliary panels.
-function! coqtail#panels#refresh(buf, highlights, panels, scroll) abort
+function! coqtail#panels#refresh(buf, highlights, panels, scroll, error, position) abort
   " Catch interrupt instead of aborting
   try
     let l:winids = win_findbuf(a:buf)
@@ -327,6 +327,19 @@ function! coqtail#panels#refresh(buf, highlights, panels, scroll) abort
     endif
     call setbufvar(a:buf, 'coqtail_refreshing', 1)
     let l:cur_winid = win_getid()
+
+    " a:error[0] is the starting position of the erroneous sentence
+    " a:error[2] is the error message
+    if a:error is v:null
+      call setbufvar(a:buf, 'coqtail_last_error_pos', v:null)
+      call setbufvar(a:buf, 'coqtail_last_error_msg', v:null)
+    else
+      call setbufvar(a:buf, 'coqtail_last_error_msg', a:error[2])
+      call setbufvar(a:buf, 'coqtail_last_error_pos', [a:error[0][0] + 1, a:error[0][1] + 1])
+    endif
+
+    " Update the position
+    call setbufvar(a:buf, 'coqtail_position', a:position)
 
     " Update highlighting
     call setbufvar(a:buf, 'coqtail_highlights', a:highlights)
