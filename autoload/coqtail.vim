@@ -448,7 +448,7 @@ function! coqtail#start(after_start_func, coq_args) abort
     " Sync edits to the buffer, close and restore the auxiliary panels
     augroup coqtail#Sync
       autocmd! * <buffer>
-      autocmd InsertEnter <buffer> call s:call('sync', 'sync', 0, {})
+      autocmd TextChanged,TextChangedI <buffer> call s:call('sync', 'sync', 0, {})
       autocmd BufWinLeave <buffer> call coqtail#panels#hide()
       autocmd BufWinEnter <buffer> call coqtail#open_and_refresh(0)
       autocmd WinNew <buffer> call coqtail#refresh()
